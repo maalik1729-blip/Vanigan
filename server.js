@@ -1,0 +1,52 @@
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const helmet = require('helmet');
+const cors = require('cors');
+const morgan = require('morgan');
+const whatsappRoutes = require('./routes/whatsapp');
+const businessRoutes = require('./routes/business');
+const organizerRoutes = require('./routes/organizer');
+const memberRoutes = require('./routes/member');
+const newsRoutes = require('./routes/news');
+const subscriptionRoutes = require('./routes/subscription');
+const { errorHandler, notFound } = require('./middleware/errorHandler');
+const { apiLimiter } = require('./middleware/rateLimiter');
+
+const app = express();
+
+// Security middleware
+app.use(helmet());
+app.use(cors());
+app.use(morgan('combined'));
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Rate limiting for API routes
+app.use('/api', apiLimiter);
+
+// Connect to MongoDB
+const connectDB = require('./config/database');
+connectDB();
+
+// Routes
+app.use('/webhook', whatsappRoutes);
+app.use('/api/business', businessRoutes);
+app.use('/api/organizer', organizerRoutes);
+app.use('/api/member', memberRoutes);
+app.use('/api/news', newsRoutes);
+app.use('/api/subscription', subscriptionRoutes);
+
+// Error handling
+app.use(notFound);
+app.use(errorHandler);
+
+app.get('/', (req, res) => {
+  res.send('Vanigan WhatsApp Bot Backend Running');
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
