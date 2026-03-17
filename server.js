@@ -28,7 +28,19 @@ app.use('/api', apiLimiter);
 
 // Connect to MongoDB
 const connectDB = require('./config/database');
-connectDB();
+
+// Initialize database connection
+const initializeDatabase = async () => {
+  try {
+    await connectDB();
+    console.log('Database connected successfully');
+  } catch (error) {
+    console.error('Database connection failed:', error.message);
+    // Don't exit the process, let the server run without DB for now
+  }
+};
+
+initializeDatabase();
 
 // Root route
 app.get('/', (req, res) => {
@@ -52,6 +64,21 @@ app.get('/health', (req, res) => {
   res.json({
     success: true,
     status: 'healthy',
+    timestamp: new Date().toISOString(),
+    database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected'
+  });
+});
+
+// Status endpoint for debugging
+app.get('/status', (req, res) => {
+  res.json({
+    success: true,
+    server: 'running',
+    database: {
+      status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+      readyState: mongoose.connection.readyState
+    },
+    environment: process.env.NODE_ENV || 'development',
     timestamp: new Date().toISOString()
   });
 });
@@ -69,6 +96,17 @@ app.use(notFound);
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
+
+// Handle uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+});
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err) => {
+  console.error('Unhandled Rejection:', err);
+});
+
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
