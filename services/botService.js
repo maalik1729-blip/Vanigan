@@ -5,9 +5,25 @@ const Member = require('../models/Member');
 const News = require('../models/News');
 const whatsappService = require('./whatsappService');
 const { STATES, CATEGORIES, DISTRICTS } = require('../config/constants');
+const mongoose = require('mongoose');
+
+// Check if database is connected
+const isDatabaseConnected = () => {
+  return mongoose.connection.readyState === 1;
+};
 
 exports.processMessage = async (phoneNumber, message, location, rawMessage) => {
   try {
+    // Check database connection
+    if (!isDatabaseConnected()) {
+      console.log('Database not connected, sending fallback message');
+      await whatsappService.sendMessage(
+        phoneNumber, 
+        'Sorry, the service is currently unavailable. Please try again later.'
+      );
+      return;
+    }
+
     let user = await User.findOne({ phoneNumber });
     
     if (!user) {
