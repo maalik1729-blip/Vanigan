@@ -11,22 +11,34 @@ exports.verifyWebhook = (req, res) => {
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
 
-    console.log('Webhook verification attempt:', { mode, token, challenge });
-    console.log('Expected verify token:', process.env.VERIFY_TOKEN);
+    console.log('Webhook verification attempt:', { 
+      mode, 
+      receivedToken: token, 
+      challenge,
+      expectedToken: process.env.VERIFY_TOKEN 
+    });
+
+    // Check if all required parameters are present
+    if (!mode || !token || !challenge) {
+      console.log('Missing required parameters');
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
 
     if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
-      console.log('Webhook verified successfully');
+      console.log('Webhook verified successfully - sending challenge:', challenge);
       logger.info('Webhook verified successfully');
-      res.status(200).send(challenge);
+      return res.status(200).send(challenge);
     } else {
       console.log('Webhook verification failed - mode or token mismatch');
+      console.log('Expected token:', process.env.VERIFY_TOKEN);
+      console.log('Received token:', token);
       logger.warn('Webhook verification failed', { mode, token, expected: process.env.VERIFY_TOKEN });
-      res.sendStatus(403);
+      return res.status(403).json({ error: 'Verification failed' });
     }
   } catch (error) {
     console.error('Error in webhook verification:', error);
     logger.error('Error in webhook verification', { error: error.message });
-    res.sendStatus(500);
+    return res.status(500).json({ error: 'Internal server error' });
   }
 };
 

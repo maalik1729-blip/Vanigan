@@ -39,8 +39,30 @@ app.get('/webhook/test', (req, res) => {
     success: true,
     message: 'Webhook endpoint is accessible',
     timestamp: new Date().toISOString(),
-    verifyToken: process.env.VERIFY_TOKEN ? 'Set' : 'Not set'
+    verifyToken: process.env.VERIFY_TOKEN ? 'Set' : 'Not set',
+    actualToken: process.env.VERIFY_TOKEN
   });
+});
+
+// Add a simple GET route for webhook testing
+app.get('/webhook', (req, res) => {
+  const mode = req.query['hub.mode'];
+  const token = req.query['hub.verify_token'];
+  const challenge = req.query['hub.challenge'];
+  
+  console.log('Direct webhook GET request:', { mode, token, challenge });
+  
+  if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
+    console.log('Webhook verified via direct route');
+    res.status(200).send(challenge);
+  } else {
+    console.log('Webhook verification failed via direct route');
+    res.status(403).json({ 
+      error: 'Verification failed',
+      received: { mode, token },
+      expected: { mode: 'subscribe', token: process.env.VERIFY_TOKEN }
+    });
+  }
 });
 
 app.get('/status', (req, res) => {
