@@ -34,6 +34,15 @@ app.get('/health', (req, res) => {
   });
 });
 
+app.get('/webhook/test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Webhook endpoint is accessible',
+    timestamp: new Date().toISOString(),
+    verifyToken: process.env.VERIFY_TOKEN ? 'Set' : 'Not set'
+  });
+});
+
 app.get('/status', (req, res) => {
   res.json({
     success: true,

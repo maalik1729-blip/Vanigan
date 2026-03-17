@@ -6,16 +6,27 @@ const { userMessageLimiter } = require('../middleware/rateLimiter');
 
 // Webhook verification
 exports.verifyWebhook = (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
+  try {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
 
-  if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
-    logger.info('Webhook verified successfully');
-    res.status(200).send(challenge);
-  } else {
-    logger.warn('Webhook verification failed', { mode, token });
-    res.sendStatus(403);
+    console.log('Webhook verification attempt:', { mode, token, challenge });
+    console.log('Expected verify token:', process.env.VERIFY_TOKEN);
+
+    if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
+      console.log('Webhook verified successfully');
+      logger.info('Webhook verified successfully');
+      res.status(200).send(challenge);
+    } else {
+      console.log('Webhook verification failed - mode or token mismatch');
+      logger.warn('Webhook verification failed', { mode, token, expected: process.env.VERIFY_TOKEN });
+      res.sendStatus(403);
+    }
+  } catch (error) {
+    console.error('Error in webhook verification:', error);
+    logger.error('Error in webhook verification', { error: error.message });
+    res.sendStatus(500);
   }
 };
 
