@@ -1,4 +1,13 @@
 require('dotenv').config();
+
+// Debug environment variables
+console.log('=== ENVIRONMENT VARIABLES DEBUG ===');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('VERIFY_TOKEN:', process.env.VERIFY_TOKEN);
+console.log('PORT:', process.env.PORT);
+console.log('All env keys:', Object.keys(process.env).filter(key => key.includes('VERIFY') || key.includes('TOKEN')));
+console.log('===================================');
+
 const express = require('express');
 const mongoose = require('mongoose');
 const helmet = require('helmet');
@@ -63,12 +72,17 @@ app.get('/webhook', (req, res) => {
     const token = req.query['hub.verify_token'];
     const challenge = req.query['hub.challenge'];
     
+    // Fallback verify token if env var is not loaded
+    const verifyToken = process.env.VERIFY_TOKEN || 'Vanigan-whatsapp-2026';
+    
     console.log('=== WEBHOOK VERIFICATION REQUEST ===');
     console.log('Mode:', mode);
     console.log('Received token:', token);
     console.log('Challenge:', challenge);
-    console.log('Expected token:', process.env.VERIFY_TOKEN);
+    console.log('Expected token:', verifyToken);
     console.log('Environment:', process.env.NODE_ENV);
+    console.log('Env VERIFY_TOKEN:', process.env.VERIFY_TOKEN);
+    console.log('Using fallback:', !process.env.VERIFY_TOKEN);
     console.log('=====================================');
     
     // If no query parameters, show info
@@ -76,22 +90,27 @@ app.get('/webhook', (req, res) => {
       return res.json({
         message: 'Webhook endpoint is active',
         timestamp: new Date().toISOString(),
-        verifyToken: process.env.VERIFY_TOKEN ? 'Set' : 'Not set'
+        verifyToken: verifyToken ? 'Set' : 'Not set',
+        usingFallback: !process.env.VERIFY_TOKEN
       });
     }
     
-    if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
+    if (mode === 'subscribe' && token === verifyToken) {
       console.log('✅ Webhook verified successfully - sending challenge');
       res.status(200).send(challenge);
     } else {
       console.log('❌ Webhook verification failed');
       console.log('Expected mode: subscribe, got:', mode);
-      console.log('Expected token:', process.env.VERIFY_TOKEN);
+      console.log('Expected token:', verifyToken);
       console.log('Received token:', token);
       res.status(403).json({ 
         error: 'Verification failed',
         received: { mode, token },
-        expected: { mode: 'subscribe', token: process.env.VERIFY_TOKEN ? 'Token is set' : 'Token is NOT set' }
+        expected: { mode: 'subscribe', token: verifyToken },
+        debug: {
+          envToken: process.env.VERIFY_TOKEN,
+          usingFallback: !process.env.VERIFY_TOKEN
+        }
       });
     }
   } catch (error) {
