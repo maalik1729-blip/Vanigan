@@ -125,8 +125,18 @@ exports.processMessage = async (phoneNumber, message, location, rawMessage) => {
 
 // Language Selection
 async function handleLanguageSelect(user, message) {
-  const languages = { '1': 'english', '2': 'tamil', '3': 'hindi' };
-  const selectedLang = languages[message];
+  const languages = { 
+    '1': 'english', 
+    '2': 'tamil', 
+    '3': 'hindi',
+    'en': 'english',
+    'ta': 'tamil',
+    'hi': 'hindi',
+    'english': 'english',
+    'tamil': 'tamil',
+    'hindi': 'hindi'
+  };
+  const selectedLang = languages[message.toLowerCase()];
   
   if (selectedLang) {
     user.language = selectedLang;
@@ -134,8 +144,16 @@ async function handleLanguageSelect(user, message) {
     await user.save();
     await sendWelcomeMessage(user.phoneNumber, selectedLang);
   } else {
-    await whatsappService.sendMessage(user.phoneNumber, 
-      'Please choose your language\n1️⃣ English\n2️⃣ தமிழ்\n3️⃣ हिंदी');
+    const buttons = [
+      { id: 'en', title: '🇬🇧 English' },
+      { id: 'ta', title: '🇮🇳 தமிழ்' },
+      { id: 'hi', title: '🇮🇳 हिंदी' }
+    ];
+    await whatsappService.sendButtons(
+      user.phoneNumber,
+      '🌐 *Choose Your Language*\n\nPlease select your preferred language:',
+      buttons
+    );
   }
 }
 
@@ -152,8 +170,30 @@ async function handleWelcome(user, message) {
 
 // Main Menu
 async function sendMainMenu(phoneNumber, language) {
-  const msg = `Main Menu\n\n1️⃣ Business List\n2️⃣ Organizer List\n3️⃣ Members List\n4️⃣ Add Business\n5️⃣ Subscription Plans\n6️⃣ News\n\nReply with the number`;
-  await whatsappService.sendMessage(phoneNumber, msg);
+  const buttons = [
+    { id: 'business', title: '🏢 Business List' },
+    { id: 'organizer', title: '👥 Organizer List' },
+    { id: 'members', title: '👤 Members List' }
+  ];
+  
+  await whatsappService.sendButtons(
+    phoneNumber,
+    '📱 *Vanigan Main Menu*\n\nChoose an option:',
+    buttons
+  );
+  
+  // Send additional options as a second message
+  const moreButtons = [
+    { id: 'add_business', title: '➕ Add Business' },
+    { id: 'subscription', title: '💳 Subscription' },
+    { id: 'news', title: '📰 News' }
+  ];
+  
+  await whatsappService.sendButtons(
+    phoneNumber,
+    'More options:',
+    moreButtons
+  );
 }
 
 async function handleMainMenu(user, message) {
@@ -163,10 +203,16 @@ async function handleMainMenu(user, message) {
     '3': STATES.MEMBER_DISTRICT,
     '4': STATES.ADD_BUSINESS_NAME,
     '5': STATES.SUBSCRIPTION_MENU,
-    '6': STATES.NEWS_DISTRICT
+    '6': STATES.NEWS_DISTRICT,
+    'business': STATES.BUSINESS_CATEGORY,
+    'organizer': STATES.ORGANIZER_DISTRICT,
+    'members': STATES.MEMBER_DISTRICT,
+    'add_business': STATES.ADD_BUSINESS_NAME,
+    'subscription': STATES.SUBSCRIPTION_MENU,
+    'news': STATES.NEWS_DISTRICT
   };
 
-  const nextState = options[message];
+  const nextState = options[message.toLowerCase()];
   if (nextState) {
     user.currentState = nextState;
     user.stateData = {};
@@ -561,26 +607,38 @@ async function handleAddBusinessLocation(user, message, location) {
 
 // Subscription Flow
 async function sendSubscriptionMenu(phoneNumber) {
-  const msg = `Vanigan Subscription Plans\n\n1️⃣ Monthly Plan - ₹199\n2️⃣ Yearly Plan - ₹1999\n3️⃣ Lifetime Plan - ₹4999\n\n0️⃣ Back`;
-  await whatsappService.sendMessage(phoneNumber, msg);
+  const buttons = [
+    { id: 'monthly', title: '📅 Monthly ₹199' },
+    { id: 'yearly', title: '📆 Yearly ₹1999' },
+    { id: 'lifetime', title: '♾️ Lifetime ₹4999' }
+  ];
+  
+  await whatsappService.sendButtons(
+    phoneNumber,
+    '💳 *Vanigan Subscription Plans*\n\n✨ Get premium features:\n✔ Business Listing\n✔ Priority Visibility\n✔ Customer Leads\n\nChoose your plan:',
+    buttons
+  );
 }
 
 async function handleSubscriptionMenu(user, message) {
   const plans = {
-    '1': { name: 'monthly', price: 199 },
-    '2': { name: 'yearly', price: 1999 },
-    '3': { name: 'lifetime', price: 4999 }
+    '1': { name: 'Monthly', price: 199, id: 'monthly' },
+    '2': { name: 'Yearly', price: 1999, id: 'yearly' },
+    '3': { name: 'Lifetime', price: 4999, id: 'lifetime' },
+    'monthly': { name: 'Monthly', price: 199, id: 'monthly' },
+    'yearly': { name: 'Yearly', price: 1999, id: 'yearly' },
+    'lifetime': { name: 'Lifetime', price: 4999, id: 'lifetime' }
   };
 
-  if (message === '0') {
+  if (message === '0' || message.toLowerCase() === 'back') {
     user.currentState = STATES.MAIN_MENU;
     await user.save();
     return await sendMainMenu(user.phoneNumber, user.language);
   }
 
-  const plan = plans[message];
+  const plan = plans[message.toLowerCase()];
   if (plan) {
-    const msg = `${plan.name.toUpperCase()} Plan\nPrice: ₹${plan.price}\n\nBenefits:\n✔ Business Listing\n✔ Priority Visibility\n✔ Customer Leads\n\nPayment link: [Payment Gateway URL]\n\n0️⃣ Back`;
+    const msg = `💎 *${plan.name} Plan*\n\n💰 Price: ₹${plan.price}\n\n✨ Benefits:\n✔ Business Listing\n✔ Priority Visibility\n✔ Customer Leads\n✔ Analytics Dashboard\n✔ 24/7 Support\n\n📱 Payment link: [Payment Gateway URL]\n\nType MENU to return to main menu`;
     await whatsappService.sendMessage(user.phoneNumber, msg);
   }
 }
