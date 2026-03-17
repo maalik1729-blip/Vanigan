@@ -30,6 +30,32 @@ app.use('/api', apiLimiter);
 const connectDB = require('./config/database');
 connectDB();
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Vanigan WhatsApp Bot Backend Running',
+    version: '1.0.0',
+    endpoints: {
+      webhook: '/webhook',
+      business: '/api/business',
+      organizer: '/api/organizer',
+      member: '/api/member',
+      news: '/api/news',
+      subscription: '/api/subscription'
+    }
+  });
+});
+
+// Health check endpoint
+app.get('/health', (req, res) => {
+  res.json({
+    success: true,
+    status: 'healthy',
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Routes
 app.use('/webhook', whatsappRoutes);
 app.use('/api/business', businessRoutes);
@@ -38,13 +64,9 @@ app.use('/api/member', memberRoutes);
 app.use('/api/news', newsRoutes);
 app.use('/api/subscription', subscriptionRoutes);
 
-// Error handling
+// Error handling (must be last)
 app.use(notFound);
 app.use(errorHandler);
-
-app.get('/', (req, res) => {
-  res.send('Vanigan WhatsApp Bot Backend Running');
-});
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
