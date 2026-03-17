@@ -7,29 +7,41 @@ const whatsappService = require('./whatsappService');
 const { STATES, CATEGORIES, DISTRICTS } = require('../config/constants');
 const mongoose = require('mongoose');
 
+// In-memory user storage for when database is not available
+const inMemoryUsers = new Map();
+
 // Check if database is connected
 const isDatabaseConnected = () => {
   return mongoose.connection.readyState === 1;
 };
 
-exports.processMessage = async (phoneNumber, message, location, rawMessage) => {
-  try {
-    // Check database connection
-    if (!isDatabaseConnected()) {
-      console.log('Database not connected, sending fallback message');
-      await whatsappService.sendMessage(
-        phoneNumber, 
-        'Sorry, the service is currently unavailable. Please try again later.'
-      );
-      return;
-    }
-
+// Get or create user (with fallback to in-memory storage)
+const getOrCreateUser = async (phoneNumber) => {
+  if (isDatabaseConnected()) {
     let user = await User.findOne({ phoneNumber });
-    
     if (!user) {
       user = new User({ phoneNumber, currentState: STATES.LANGUAGE_SELECT });
       await user.save();
     }
+    return user;
+  } else {
+    // Use in-memory storage
+    if (!inMemoryUsers.has(phoneNumber)) {
+      inMemoryUsers.set(phoneNumber, {
+        phoneNumber,
+        currentState: STATES.LANGUAGE_SELECT,
+        language: 'english',
+        stateData: {},
+        save: async function() { return this; }
+      });
+    }
+    return inMemoryUsers.get(phoneNumber);
+  }
+};
+
+exports.processMessage = async (phoneNumber, message, location, rawMessage) => {
+  try {
+    let user = await getOrCreateUser(phoneNumber);
 
     // Global commands
     if (message.toUpperCase() === 'MENU') {
@@ -301,6 +313,14 @@ async function handleBusinessSubCategory(user, message) {
 }
 
 async function sendBusinessList(user) {
+  if (!isDatabaseConnected()) {
+    await whatsappService.sendMessage(
+      user.phoneNumber, 
+      '📋 *Business List*\n\n⚠️ Database not connected. This is a demo.\n\n1️⃣ Sample Business 1\n2️⃣ Sample Business 2\n3️⃣ Sample Business 3\n\nTo see real businesses, please contact admin to set up database.\n\nType MENU to return to main menu'
+    );
+    return;
+  }
+
   const businesses = await Business.find({
     category: user.stateData.category,
     subCategory: user.stateData.subCategory,
