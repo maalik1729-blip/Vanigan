@@ -34,6 +34,18 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Add a simple test route that doesn't require any dependencies
+app.get('/webhook-test', (req, res) => {
+  res.json({
+    success: true,
+    message: 'Webhook endpoint is working',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    verifyToken: process.env.VERIFY_TOKEN ? 'Token is set' : 'Token is NOT set',
+    query: req.query
+  });
+});
+
 app.get('/webhook/test', (req, res) => {
   res.json({
     success: true,
@@ -46,22 +58,45 @@ app.get('/webhook/test', (req, res) => {
 
 // Add a simple GET route for webhook testing
 app.get('/webhook', (req, res) => {
-  const mode = req.query['hub.mode'];
-  const token = req.query['hub.verify_token'];
-  const challenge = req.query['hub.challenge'];
-  
-  console.log('Direct webhook GET request:', { mode, token, challenge });
-  
-  if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
-    console.log('Webhook verified via direct route');
-    res.status(200).send(challenge);
-  } else {
-    console.log('Webhook verification failed via direct route');
-    res.status(403).json({ 
-      error: 'Verification failed',
-      received: { mode, token },
-      expected: { mode: 'subscribe', token: process.env.VERIFY_TOKEN }
-    });
+  try {
+    const mode = req.query['hub.mode'];
+    const token = req.query['hub.verify_token'];
+    const challenge = req.query['hub.challenge'];
+    
+    console.log('=== WEBHOOK VERIFICATION REQUEST ===');
+    console.log('Mode:', mode);
+    console.log('Received token:', token);
+    console.log('Challenge:', challenge);
+    console.log('Expected token:', process.env.VERIFY_TOKEN);
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('=====================================');
+    
+    // If no query parameters, show info
+    if (!mode && !token && !challenge) {
+      return res.json({
+        message: 'Webhook endpoint is active',
+        timestamp: new Date().toISOString(),
+        verifyToken: process.env.VERIFY_TOKEN ? 'Set' : 'Not set'
+      });
+    }
+    
+    if (mode === 'subscribe' && token === process.env.VERIFY_TOKEN) {
+      console.log('✅ Webhook verified successfully - sending challenge');
+      res.status(200).send(challenge);
+    } else {
+      console.log('❌ Webhook verification failed');
+      console.log('Expected mode: subscribe, got:', mode);
+      console.log('Expected token:', process.env.VERIFY_TOKEN);
+      console.log('Received token:', token);
+      res.status(403).json({ 
+        error: 'Verification failed',
+        received: { mode, token },
+        expected: { mode: 'subscribe', token: process.env.VERIFY_TOKEN ? 'Token is set' : 'Token is NOT set' }
+      });
+    }
+  } catch (error) {
+    console.error('Error in webhook verification:', error);
+    res.status(500).json({ error: 'Internal server error', message: error.message });
   }
 });
 
